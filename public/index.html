@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Coloc</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>🏠 Coloc</h1>
+    <label class="me">Je suis
+      <select id="me"></select>
+    </label>
+  </header>
+
+  <main>
+    <!-- Courses -->
+    <section id="tab-courses" class="tab" hidden>
+      <form id="shop-form" class="add-row">
+        <input name="name" placeholder="Ajouter un article…" maxlength="100" required autocomplete="off">
+        <input name="qty" placeholder="Qté" maxlength="30" class="qty" autocomplete="off">
+        <button class="primary">Ajouter</button>
+      </form>
+      <ul id="shop-list" class="list"></ul>
+      <p id="shop-empty" class="empty" hidden>Rien à acheter 🎉</p>
+      <div id="shop-bought-wrap" hidden>
+        <div class="section-head">
+          <h2>Achetés</h2>
+          <button id="clear-bought" class="link" type="button">Vider la liste</button>
+        </div>
+        <ul id="shop-bought" class="list done"></ul>
+      </div>
+    </section>
+
+    <!-- Tâches -->
+    <section id="tab-taches" class="tab" hidden>
+      <div class="toolbar">
+        <label class="check"><input type="checkbox" id="only-mine"> Seulement les miennes</label>
+        <button id="new-task" class="primary" type="button">+ Nouvelle tâche</button>
+      </div>
+      <ul id="task-list" class="list"></ul>
+      <p id="task-empty" class="empty" hidden>Aucune tâche à faire 🎉</p>
+      <div id="task-done-wrap" hidden>
+        <div class="section-head">
+          <h2>Terminées</h2>
+          <button id="clear-done" class="link" type="button">Vider la liste</button>
+        </div>
+        <ul id="task-done" class="list done"></ul>
+      </div>
+    </section>
+
+    <!-- Tricount -->
+    <section id="tab-tricount" class="tab" hidden>
+      <div class="card center">
+        <div class="big-emoji">💸</div>
+        <p id="tricount-empty">Aucun lien Tricount pour l'instant. Ajoute-le ci-dessous.</p>
+        <a id="tricount-link" class="primary big" target="_blank" rel="noopener noreferrer" hidden>Ouvrir le Tricount ↗</a>
+      </div>
+      <form id="tricount-form" class="card stack">
+        <label>Lien du Tricount
+          <input type="url" name="url" placeholder="https://tricount.com/…" maxlength="500" autocomplete="off">
+        </label>
+        <button class="primary">Enregistrer le lien</button>
+      </form>
+    </section>
+
+    <!-- Colocs -->
+    <section id="tab-colocs" class="tab" hidden>
+      <form id="person-form" class="add-row">
+        <input name="name" placeholder="Nom d'un nouveau coloc" maxlength="40" required autocomplete="off">
+        <button class="primary">Ajouter</button>
+      </form>
+      <h2>Colocs actuels</h2>
+      <ul id="people-active" class="list"></ul>
+      <p id="people-empty" class="empty" hidden>Ajoute les colocs pour commencer.</p>
+      <div id="people-old-wrap" hidden>
+        <h2>Anciens colocs</h2>
+        <ul id="people-old" class="list done"></ul>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabs">
+    <button data-tab="courses"><span>🛒</span>Courses</button>
+    <button data-tab="taches"><span>✅</span>Tâches</button>
+    <button data-tab="tricount"><span>💸</span>Tricount</button>
+    <button data-tab="colocs"><span>👥</span>Colocs</button>
+  </nav>
+
+  <dialog id="task-dialog">
+    <form id="task-form" class="stack">
+      <h2 id="task-dialog-title">Nouvelle tâche</h2>
+      <label>Tâche
+        <input name="title" required maxlength="120" placeholder="Sortir les poubelles" autocomplete="off">
+      </label>
+      <label>Responsable
+        <select name="assignee_id"></select>
+      </label>
+      <label>Répétition
+        <select name="recurrence">
+          <option value="none">Une seule fois</option>
+          <option value="daily">Chaque jour</option>
+          <option value="weekly">Chaque semaine</option>
+          <option value="biweekly">Toutes les 2 semaines</option>
+          <option value="monthly">Chaque mois</option>
+        </select>
+      </label>
+      <label class="check" id="rotate-row">
+        <input type="checkbox" name="rotate" checked> Tourner entre les colocs à chaque fois
+      </label>
+      <label>Pour le
+        <input type="date" name="due_date">
+      </label>
+      <div class="dialog-actions">
+        <button type="button" id="task-delete" class="danger">Supprimer</button>
+        <span class="spacer"></span>
+        <button type="button" id="task-cancel">Annuler</button>
+        <button class="primary">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
