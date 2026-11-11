@@ -227,6 +227,21 @@ dialog h2 { margin: 0; font-size: 18px; text-transform: none; letter-spacing: 0;
 #task-delete { border: none; background: none; padding: 10px 4px; }
 .spacer { flex: 1; }
 
+/* Écran du code */
+#lock {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+#lock form { width: min(360px, 100%); text-align: center; }
+#lock h2 { margin: 0; font-size: 20px; text-transform: none; letter-spacing: 0; color: var(--text); }
+#lock input { text-align: center; font-size: 18px; }
+.error { color: var(--danger); font-size: 14px; margin: 0; min-height: 1em; }
+
 /* Notification */
 #toast {
   position: fixed;

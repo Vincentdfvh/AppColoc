@@ -1,5 +1,7 @@
-// Interface de l'app coloc. Les données vivent sur le serveur ; on les recharge régulièrement
+// Interface de l'app coloc. Les données vivent dans Supabase ; on les recharge régulièrement
 // pour voir les changements faits par les autres colocs.
+
+import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 
 const $ = (s) => document.querySelector(s);
 const POLL_MS = 4000;
@@ -20,15 +22,40 @@ const getMe = () => Number(load('coloc.me')) || null;
 
 // ---------- Outils ----------
 
-async function api(method, path, body) {
-  const res = await fetch('/api' + path, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Erreur');
+const getCode = () => load('coloc.code');
+
+class CodeError extends Error {}
+
+// Appelle une fonction de la base Supabase, toujours avec le code de la coloc.
+async function rpc(fn, args = {}, code = getCode()) {
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({ p_code: code, ...args }),
+    });
+  } catch {
+    throw new Error('Pas de connexion internet');
+  }
+  const data = res.status === 204 ? null : await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = data?.message || 'Erreur';
+    if (msg === 'CODE_INVALIDE') throw new CodeError('Code incorrect');
+    if (data?.code === 'PGRST202') throw new Error("La base de données n'est pas encore installée dans Supabase");
+    throw new Error(msg);
+  }
   return data;
+}
+
+function showLock(message = '') {
+  $('#lock').hidden = false;
+  $('#lock-error').textContent = message;
+  $('#lock-form').code.focus();
 }
 
 let toastTimer;
@@ -41,8 +68,9 @@ function toast(msg) {
 }
 
 async function refresh(force = false) {
+  if (!getCode()) return showLock();
   try {
-    const s = await api('GET', '/state');
+    const s = await rpc('get_state');
     const json = JSON.stringify(s);
     if (force || json !== lastJson) {
       lastJson = json;
@@ -50,8 +78,13 @@ async function refresh(force = false) {
       render();
     }
     document.body.classList.remove('offline');
-  } catch {
-    document.body.classList.add('offline');
+  } catch (e) {
+    if (e instanceof CodeError) {
+      save('coloc.code', '');
+      showLock('Le code a changé, entre le nouveau code.');
+    } else {
+      document.body.classList.add('offline');
+    }
   }
 }
 
@@ -60,7 +93,12 @@ async function act(fn) {
     await fn();
     await refresh(true);
   } catch (e) {
-    toast(e.message);
+    if (e instanceof CodeError) {
+      save('coloc.code', '');
+      showLock('Le code a changé, entre le nouveau code.');
+    } else {
+      toast(e.message);
+    }
   }
 }
 
@@ -116,8 +154,8 @@ function dueLabel(due) {
 }
 
 const shortDate = (date) => date.toLocaleDateString('fr-CH', { day: 'numeric', month: 'short' });
-// Les dates du serveur sont en UTC au format "AAAA-MM-JJ HH:MM:SS".
-const fromServer = (s) => shortDate(new Date(s.replace(' ', 'T') + 'Z'));
+// Les dates de la base arrivent au format ISO avec fuseau horaire.
+const fromServer = (s) => shortDate(new Date(s));
 
 const REC_LABELS = {
   daily: 'chaque jour',
@@ -160,7 +198,7 @@ function renderShopping() {
           class: 'tick', 'aria-label': `Marquer ${i.name} comme acheté`,
           onclick: () => {
             const me = requireMe();
-            if (me) act(() => api('PATCH', `/shopping/${i.id}`, { bought: true, by: me }));
+            if (me) act(() => rpc('set_item_bought', { p_id: i.id, p_bought: true, p_by: me }));
           },
         }),
         el('div', { class: 'body' },
@@ -169,7 +207,7 @@ function renderShopping() {
         ),
         el('button', {
           class: 'icon', 'aria-label': `Supprimer ${i.name}`,
-          onclick: () => act(() => api('DELETE', `/shopping/${i.id}`)),
+          onclick: () => act(() => rpc('delete_item', { p_id: i.id })),
         }, '✕'),
       ),
     ),
@@ -182,7 +220,7 @@ function renderShopping() {
       el('li', {},
         el('button', {
           class: 'tick on', 'aria-label': `Remettre ${i.name} dans la liste`,
-          onclick: () => act(() => api('PATCH', `/shopping/${i.id}`, { bought: false })),
+          onclick: () => act(() => rpc('set_item_bought', { p_id: i.id, p_bought: false, p_by: null })),
         }, '✓'),
         el('div', { class: 'body' },
           el('div', { class: 'title' }, i.name, i.qty && el('span', { class: 'qty-badge' }, i.qty)),
@@ -213,7 +251,7 @@ function renderTasks() {
             const by = requireMe();
             if (!by) return;
             act(async () => {
-              await api('POST', `/tasks/${t.id}/complete`, { by });
+              await rpc('complete_task', { p_id: t.id, p_by: by });
               if (t.recurrence !== 'none') toast('Bravo ! Prochaine fois programmée.');
             });
           },
@@ -238,7 +276,7 @@ function renderTasks() {
       el('li', {},
         el('button', {
           class: 'tick on', 'aria-label': `Rouvrir ${t.title}`,
-          onclick: () => act(() => api('POST', `/tasks/${t.id}/reopen`)),
+          onclick: () => act(() => rpc('reopen_task', { p_id: t.id })),
         }, '✓'),
         el('div', { class: 'body' },
           el('div', { class: 'title' }, t.title),
@@ -246,7 +284,7 @@ function renderTasks() {
         ),
         el('button', {
           class: 'icon', 'aria-label': `Supprimer ${t.title}`,
-          onclick: () => act(() => api('DELETE', `/tasks/${t.id}`)),
+          onclick: () => act(() => rpc('delete_task', { p_id: t.id })),
         }, '✕'),
       ),
     ),
@@ -280,13 +318,13 @@ function renderPeople() {
         el('button', {
           class: 'small', onclick: () => {
             const name = prompt('Nouveau nom', p.name);
-            if (name && name.trim() !== p.name) act(() => api('PATCH', `/people/${p.id}`, { name }));
+            if (name && name.trim() !== p.name) act(() => rpc('rename_person', { p_id: p.id, p_name: name }));
           },
         }, 'Renommer'),
         el('button', {
           class: 'small', onclick: () => {
             if (confirm(`${p.name} quitte la coloc ? Ses tâches récurrentes passeront au coloc suivant.`)) {
-              act(() => api('PATCH', `/people/${p.id}`, { active: false }));
+              act(() => rpc('set_person_active', { p_id: p.id, p_active: false }));
             }
           },
         }, 'Est parti'),
@@ -302,12 +340,12 @@ function renderPeople() {
         el('div', { class: 'avatar' }, p.name.slice(0, 1).toUpperCase()),
         el('div', { class: 'body' }, el('div', { class: 'title' }, p.name)),
         el('button', {
-          class: 'small', onclick: () => act(() => api('PATCH', `/people/${p.id}`, { active: true })),
+          class: 'small', onclick: () => act(() => rpc('set_person_active', { p_id: p.id, p_active: true })),
         }, 'Revenu'),
         el('button', {
           class: 'small danger', onclick: () => {
             if (confirm(`Supprimer définitivement ${p.name} ? Son nom disparaîtra de l'historique.`)) {
-              act(() => api('DELETE', `/people/${p.id}`));
+              act(() => rpc('delete_person', { p_id: p.id }));
             }
           },
         }, 'Supprimer'),
@@ -372,14 +410,14 @@ $('#shop-form').addEventListener('submit', (e) => {
   const me = requireMe();
   if (!me) return;
   act(async () => {
-    await api('POST', '/shopping', { name: f.name.value, qty: f.qty.value, added_by: me });
+    await rpc('add_item', { p_name: f.name.value, p_qty: f.qty.value, p_added_by: me });
     f.reset();
     f.name.focus();
   });
 });
 
 $('#clear-bought').addEventListener('click', () => {
-  if (confirm('Effacer tous les articles achetés ?')) act(() => api('POST', '/shopping/clear-bought'));
+  if (confirm('Effacer tous les articles achetés ?')) act(() => rpc('clear_bought'));
 });
 
 $('#only-mine').addEventListener('change', (e) => {
@@ -389,7 +427,7 @@ $('#only-mine').addEventListener('change', (e) => {
 
 $('#new-task').addEventListener('click', () => openTaskDialog());
 $('#clear-done').addEventListener('click', () => {
-  if (confirm('Effacer toutes les tâches terminées ?')) act(() => api('POST', '/tasks/clear-done'));
+  if (confirm('Effacer toutes les tâches terminées ?')) act(() => rpc('clear_done'));
 });
 
 $('#task-form').recurrence.addEventListener('change', syncRotate);
@@ -398,22 +436,22 @@ $('#task-delete').addEventListener('click', () => {
   if (!editingTaskId || !confirm('Supprimer cette tâche ?')) return;
   const id = editingTaskId;
   $('#task-dialog').close();
-  act(() => api('DELETE', `/tasks/${id}`));
+  act(() => rpc('delete_task', { p_id: id }));
 });
 
 $('#task-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const f = e.target;
   const body = {
-    title: f.title.value,
-    assignee_id: f.assignee_id.value || null,
-    recurrence: f.recurrence.value,
-    rotate: f.rotate.checked,
-    due_date: f.due_date.value || null,
+    p_id: editingTaskId,
+    p_title: f.title.value,
+    p_assignee_id: Number(f.assignee_id.value) || null,
+    p_recurrence: f.recurrence.value,
+    p_rotate: f.rotate.checked,
+    p_due_date: f.due_date.value || null,
   };
-  const id = editingTaskId;
   act(async () => {
-    await (id ? api('PUT', `/tasks/${id}`, body) : api('POST', '/tasks', body));
+    await rpc('save_task', body);
     $('#task-dialog').close();
   });
 });
@@ -422,7 +460,7 @@ $('#tricount-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const input = e.target.url;
   act(async () => {
-    await api('PUT', '/settings', { tricount_url: input.value });
+    await rpc('set_tricount_url', { p_url: input.value });
     input.blur();
     toast('Lien enregistré');
   });
@@ -432,10 +470,28 @@ $('#person-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const f = e.target;
   act(async () => {
-    const { id } = await api('POST', '/people', { name: f.name.value });
+    const id = await rpc('add_person', { p_name: f.name.value });
     if (!getMe()) save('coloc.me', id);
     f.reset();
   });
+});
+
+$('#lock-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = e.target.code.value.trim();
+  const btn = e.target.querySelector('button');
+  btn.disabled = true;
+  try {
+    await rpc('check_code', {}, code);
+    save('coloc.code', code);
+    e.target.reset();
+    $('#lock').hidden = true;
+    await refresh(true);
+  } catch (err) {
+    $('#lock-error').textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 // ---------- Démarrage ----------
@@ -444,6 +500,6 @@ $('#only-mine').checked = load('coloc.onlyMine') === '1';
 showTab(load('coloc.tab') || 'courses');
 refresh(true);
 setInterval(() => {
-  if (!document.hidden && !$('#task-dialog').open) refresh();
+  if (!document.hidden && !$('#task-dialog').open && $('#lock').hidden) refresh();
 }, POLL_MS);
-document.addEventListener('visibilitychange', () => !document.hidden && refresh());
+document.addEventListener('visibilitychange', () => !document.hidden && $('#lock').hidden && refresh());

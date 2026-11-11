@@ -5,9 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f766e">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Coloc">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Coloc</title>
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -124,6 +128,17 @@
       </div>
     </form>
   </dialog>
+
+  <div id="lock" hidden>
+    <form id="lock-form" class="card stack">
+      <div class="big-emoji">🔒</div>
+      <h2>Code de la coloc</h2>
+      <p class="meta">Demande le code à un coloc. Il n'est demandé qu'une fois sur ce téléphone.</p>
+      <input name="code" type="password" required autocomplete="current-password" placeholder="Code" aria-label="Code de la coloc">
+      <p id="lock-error" class="error" role="alert"></p>
+      <button class="primary">Entrer</button>
+    </form>
+  </div>
 
   <div id="toast" role="status" aria-live="polite"></div>
 

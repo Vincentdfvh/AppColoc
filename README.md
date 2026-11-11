@@ -9,30 +9,32 @@ Petite web app pour gérer la coloc, partagée entre tous les colocs :
 - **👥 Colocs** : liste dynamique. Un coloc qui part passe dans « Anciens colocs »
   (l'historique garde son nom) et ses tâches récurrentes passent au suivant.
 
-## Lancer l'app
+## Comment ça marche
 
-Il faut Node.js 22.13 ou plus récent (aucune dépendance à installer).
+- La page est hébergée sur **GitHub Pages** (fichiers statiques à la racine du dépôt).
+- Les données sont dans **Supabase** (base PostgreSQL gratuite). La page appelle uniquement
+  les fonctions définies dans [`supabase/schema.sql`](supabase/schema.sql).
+- Les tables sont fermées au public : chaque fonction vérifie le **code de la coloc**.
+  Le code est demandé une fois par téléphone puis mémorisé.
+
+## Installer sur iPhone
+
+Ouvrir le lien GitHub Pages dans **Safari** → bouton Partager → **« Sur l'écran d'accueil »**.
+
+## Mise en place (une seule fois)
+
+1. Créer un projet sur [supabase.com](https://supabase.com).
+2. Dans Supabase → **SQL Editor**, coller tout `supabase/schema.sql` et cliquer **Run**.
+3. Choisir le code de la coloc, toujours dans le SQL Editor :
+   ```sql
+   select _set_code('le-code-de-la-coloc');
+   ```
+   (Même commande pour changer le code plus tard : chaque téléphone devra entrer le nouveau.)
+4. Mettre l'URL du projet et la clé *publishable* (Project Settings → API) dans `config.js`.
+
+## Tester en local
 
 ```bash
-npm start
+python3 -m http.server 8000
 ```
-
-Le terminal affiche deux adresses :
-
-- `http://localhost:3000` pour ce Mac ;
-- `http://192.168.x.x:3000` pour les téléphones des colocs **connectés au même wifi**.
-
-Sur iPhone : ouvrir l'adresse dans Safari → Partager → « Sur l'écran d'accueil » pour l'avoir comme une app.
-
-Chaque appareil choisit « Je suis … » en haut de la page ; c'est utilisé pour savoir qui ajoute, achète ou fait quoi.
-
-## Données
-
-Tout est enregistré dans `data/coloc.db` (SQLite, ignoré par git). Pour sauvegarder, copier ce fichier.
-Variables utiles : `PORT` (défaut 3000) et `DB_PATH`.
-
-## Limites
-
-- Pas de mot de passe : toute personne sur le wifi qui connaît l'adresse peut modifier les listes.
-- L'app n'est accessible que quand le serveur tourne. Pour qu'elle marche en permanence et hors du wifi,
-  il faut la mettre sur un serveur toujours allumé (Raspberry Pi, petit VPS, Fly.io, Railway…).
+puis ouvrir http://localhost:8000.

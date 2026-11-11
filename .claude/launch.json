@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "app-coloc",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
-      "port": 3000
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8000"],
+      "port": 8000
     }
   ]
 }
